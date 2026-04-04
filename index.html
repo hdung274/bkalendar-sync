@@ -277,18 +277,25 @@
             const rawText = document.getElementById('rawInput').value;
             if(!rawText.trim()) { alert("Vui lòng dán dữ liệu!"); return; }
             
-            // TỰ ĐỘNG PHÂN BIỆT LOẠI LỊCH
-            if (rawText.includes("THỜI KHÓA BIỂU")) {
+            // TỰ ĐỘNG PHÂN BIỆT LOẠI LỊCH (THÔNG MINH HƠN)
+            let isClass = rawText.includes("THỜI KHÓA BIỂU") || rawText.includes("TÍN CHỈ") || rawText.includes("TUẦN HỌC");
+            let isExam = rawText.includes("LỊCH KIỂM TRA") || rawText.includes("Ngày thi") || rawText.includes("Loại thi");
+
+            if (isClass && !isExam) {
                 parsedEvents = parseClassSchedule(rawText);
                 parsedType = 'class';
-            } else if (rawText.includes("LỊCH KIỂM TRA")) {
+            } else if (isExam && !isClass) {
                 parsedEvents = parseExamSchedule(rawText);
                 parsedType = 'exam';
             } else {
-                // Thử đoán
-                let testClass = parseClassSchedule(rawText);
-                if(testClass.length > 0) { parsedEvents = testClass; parsedType = 'class'; }
-                else { parsedEvents = parseExamSchedule(rawText); parsedType = 'exam'; }
+                // Thử parse exam trước vì nó không có bảng popup hỏi ngày
+                parsedEvents = parseExamSchedule(rawText);
+                if (parsedEvents.length > 0) {
+                    parsedType = 'exam';
+                } else {
+                    parsedEvents = parseClassSchedule(rawText);
+                    parsedType = 'class';
+                }
             }
 
             // Bóc tách Mã Học Kỳ (VD: 20252 -> lấy 252)
@@ -315,8 +322,60 @@
         // 1. Logic xử lý LỊCH THI
         function parseExamSchedule(text) {
             const events = [];
+            
+            // Cách 1: Dùng Tab-separated nếu copy chuẩn từ bảng lưới (Chính xác nhất)
+            const lines = text.split('\n');
+            let hasTab = false;
+            for (let line of lines) {
+                if (line.includes('\t')) {
+                    const cols = line.split('\t').map(c => c.trim());
+                    const dateColIndex = cols.findIndex(c => /\d{4}-\d{2}-\d{2}/.test(c));
+                    if (dateColIndex !== -1 && cols.length >= 8) {
+                        try {
+                            const date = cols[dateColIndex]; 
+                            const subjectStr = cols[dateColIndex - 2] || ""; 
+                            const typeRaw = cols[dateColIndex + 1] || ""; 
+                            const campus = cols[dateColIndex + 2] || "";
+                            const room = cols[dateColIndex + 3] || "Xem trên MyBk";
+                            const timeRaw = cols.find(c => /\d{2}g\d{2}/.test(c)) || ""; 
+                            let durationRaw = cols[cols.indexOf(timeRaw) + 1] || "60"; 
+                            durationRaw = durationRaw.replace(/\D/g, ''); // Lọc lấy số phút
+
+                            if (date && timeRaw && subjectStr) {
+                                const subjMatch = subjectStr.match(/[A-Z]{2,3}\d{4}\s*-\s*(.+)/);
+                                const subjectName = subjMatch ? subjMatch[1].trim() : subjectStr;
+                                
+                                let type = "Thi";
+                                if(typeRaw.includes("CK")) type = "CK";
+                                else if(typeRaw.includes("GK")) type = "GK";
+
+                                const timeParts = timeRaw.split('g');
+                                const startDT = new Date(`${date}T00:00:00+07:00`);
+                                startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
+                                const endDT = new Date(startDT.getTime() + parseInt(durationRaw) * 60000);
+
+                                events.push({
+                                    summary: `[${type}] ${subjectName}`,
+                                    location: room,
+                                    description: `Thời gian làm bài: ${durationRaw} phút`,
+                                    start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                                    end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                                    _rawTimeStr: `${timeRaw} (${durationRaw}')`,
+                                    _rawDateStr: date
+                                });
+                                hasTab = true;
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            if (hasTab && events.length > 0) return events;
+
+            // Cách 2: Thuật toán quét toàn văn bằng Regex cho trường hợp copy bị mất Tab
             const rawString = text.replace(/[\n\t]/g, ' ');
-            const regex = /([A-Z]{2,3}\d{4})\s*-\s*(.+?)(?=[A-Z]{1,2}\d{1,2}|20\d{2}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})(.*?)(\d{2}g\d{2})(\d{2,3})/g;
+            // Đã fix: Thêm \s* giữa giờ (\d{2}g\d{2}) và phút (\d{2,3}) để bù trừ khoảng trắng
+            const regex = /([A-Z]{2,3}\d{4})\s*-\s*(.+?)(?=[A-Z]{1,2}\d{1,2}|20\d{2}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})(.*?)(\d{2}g\d{2})\s*(\d{2,3})/g;
             let match;
 
             while ((match = regex.exec(rawString)) !== null) {
@@ -328,22 +387,20 @@
                     const durationRaw = match[6];
 
                     let type = "Thi";
-                    if (roomRaw.startsWith("CK")) { type = "CK"; roomRaw = roomRaw.substring(2); }
-                    else if (roomRaw.startsWith("GK")) { type = "GK"; roomRaw = roomRaw.substring(2); }
+                    if (roomRaw.startsWith("CK")) { type = "CK"; roomRaw = roomRaw.substring(2).trim(); }
+                    else if (roomRaw.startsWith("GK")) { type = "GK"; roomRaw = roomRaw.substring(2).trim(); }
 
-                    // Cắt bỏ mã cơ sở và số thứ tự
-                    if (roomRaw.startsWith("BK-CS1")) roomRaw = roomRaw.substring(6);
-                    else if (roomRaw.startsWith("BK-CS2")) roomRaw = roomRaw.substring(6);
-                    roomRaw = roomRaw.replace(/\d$/, ''); 
+                    if (roomRaw.startsWith("BK-CS1")) roomRaw = roomRaw.substring(6).trim();
+                    else if (roomRaw.startsWith("BK-CS2")) roomRaw = roomRaw.substring(6).trim();
 
+                    roomRaw = roomRaw.replace(/\s*\d\s*$/, '').trim(); // Cắt số Thứ
                     const room = roomRaw || "Xem trên MyBk";
-                    
+
                     const timeParts = timeRaw.split('g');
                     const startDT = new Date(`${date}T00:00:00+07:00`);
                     startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
                     const endDT = new Date(startDT.getTime() + parseInt(durationRaw) * 60000);
 
-                    // Yêu cầu: Format [CK] Điện tử Y sinh, vị trí H6-201
                     events.push({
                         summary: `[${type}] ${subjectName}`,
                         location: room,
@@ -355,6 +412,7 @@
                     });
                 } catch (e) {}
             }
+
             return events;
         }
 
