@@ -149,7 +149,7 @@
     <script>
         // --- GOOGLE API CONFIGURATION ---
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-        // Đổi scope để có thể đọc được danh sách Lịch của người dùng
+        // Đổi scope để có thể đọc được danh sách Lịch của người dùng và tạo lịch mới
         const SCOPES = 'https://www.googleapis.com/auth/calendar';
         let CLIENT_ID = localStorage.getItem('mybk_client_id') || '';
 
@@ -159,6 +159,7 @@
         
         let parsedEvents = [];
         let parsedType = ""; // 'exam' hoặc 'class'
+        let parsedSemester = ""; // Ví dụ: '252'
 
         if (!CLIENT_ID) {
             document.getElementById('setupModal').classList.remove('hidden');
@@ -233,15 +234,40 @@
                 const calendars = response.result.items;
                 const select = document.getElementById('calendarSelector');
                 select.innerHTML = '';
+                
+                let existingSemesterCalId = null;
+
                 calendars.forEach(cal => {
                     // Chỉ lấy những lịch user có quyền ghi
                     if (cal.accessRole === 'writer' || cal.accessRole === 'owner') {
+                        // Kiểm tra xem lịch có trùng tên với học kỳ hiện tại không
+                        if (parsedType === 'class' && parsedSemester && cal.summary === parsedSemester) {
+                            existingSemesterCalId = cal.id;
+                        }
+
                         const option = document.createElement('option');
                         option.value = cal.id;
                         option.text = cal.summary + (cal.primary ? ' (Mặc định)' : '');
                         select.appendChild(option);
                     }
                 });
+
+                // Logic tự tạo lịch riêng cho Thời khóa biểu học kỳ
+                if (parsedType === 'class' && parsedSemester) {
+                    if (existingSemesterCalId) {
+                        // Đã có lịch trùng tên học kỳ -> tự động chọn nó
+                        select.value = existingSemesterCalId;
+                        log(`Đã tìm thấy lịch có sẵn tên "${parsedSemester}", hệ thống đã tự chọn lịch này.`);
+                    } else {
+                        // Chưa có -> thêm tuỳ chọn tạo mới lên đầu tiên
+                        const opt = document.createElement('option');
+                        opt.value = 'NEW_CALENDAR';
+                        opt.text = `✨ Tự động tạo lịch mới (Tên: ${parsedSemester})`;
+                        select.insertBefore(opt, select.firstChild);
+                        select.value = 'NEW_CALENDAR';
+                    }
+                }
+
                 document.getElementById('calendarSelectionBlock').classList.remove('hidden');
             } catch (e) { console.error("Lỗi lấy danh sách lịch:", e); }
         }
@@ -263,6 +289,18 @@
                 let testClass = parseClassSchedule(rawText);
                 if(testClass.length > 0) { parsedEvents = testClass; parsedType = 'class'; }
                 else { parsedEvents = parseExamSchedule(rawText); parsedType = 'exam'; }
+            }
+
+            // Bóc tách Mã Học Kỳ (VD: 20252 -> lấy 252)
+            if (parsedType === 'class') {
+                const semMatch = rawText.match(/\b20\d{3}\b/);
+                if (semMatch) {
+                    parsedSemester = semMatch[0].substring(2); // Cắt 2 số đầu "20", giữ lại "252"
+                } else {
+                    parsedSemester = "TKB Mới";
+                }
+            } else {
+                parsedSemester = ""; // Lịch thi không tự tạo lịch mới
             }
             
             if(parsedEvents.length > 0) {
@@ -462,12 +500,41 @@
             btn.disabled = true;
             btn.innerHTML = `<span class="loader mr-2 border-white border-t-blue-200"></span> Đang đồng bộ...`;
             
-            const selectedCalendarId = document.getElementById('calendarSelector').value;
+            let selectedCalendarId = document.getElementById('calendarSelector').value;
             
             const logContainer = document.getElementById('logArea');
             logContainer.classList.remove('hidden');
             document.getElementById('logContent').innerHTML = '';
-            log(`Bắt đầu đồng bộ ${parsedEvents.length} sự kiện vào Lịch đã chọn...`);
+            
+            // Xử lý tạo lịch mới nếu chọn NEW_CALENDAR
+            if (selectedCalendarId === 'NEW_CALENDAR') {
+                log(`Đang tạo lịch mới tên "${parsedSemester}"...`);
+                try {
+                    const newCal = await gapi.client.calendar.calendars.insert({
+                        resource: { summary: parsedSemester, timeZone: 'Asia/Ho_Chi_Minh' }
+                    });
+                    selectedCalendarId = newCal.result.id;
+                    log(`✅ Đã tạo lịch mới thành công!`);
+
+                    // Thêm lịch mới vào dropdown để UI cập nhật theo
+                    const opt = document.createElement('option');
+                    opt.value = selectedCalendarId;
+                    opt.text = parsedSemester;
+                    document.getElementById('calendarSelector').appendChild(opt);
+                    document.getElementById('calendarSelector').value = selectedCalendarId;
+
+                    // Xoá dòng "Tự tạo lịch mới" đi vì đã tạo xong
+                    const newCalOpt = document.querySelector('option[value="NEW_CALENDAR"]');
+                    if (newCalOpt) newCalOpt.remove();
+
+                } catch (e) {
+                    console.error("Lỗi tạo lịch:", e);
+                    log("❌ Không thể tạo lịch mới. Sẽ đồng bộ vào lịch Mặc định.", true);
+                    selectedCalendarId = 'primary';
+                }
+            }
+
+            log(`Bắt đầu đồng bộ ${parsedEvents.length} sự kiện vào Lịch...`);
 
             let successCount = 0;
             let errorCount = 0;
