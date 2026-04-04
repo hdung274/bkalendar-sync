@@ -277,7 +277,7 @@
         // 1. Logic xử lý LỊCH THI
         function parseExamSchedule(text) {
             const events = [];
-            const rawString = text.replace(/\n/g, ' ');
+            const rawString = text.replace(/[\n\t]/g, ' ');
             const regex = /([A-Z]{2,3}\d{4})\s*-\s*(.+?)(?=[A-Z]{1,2}\d{1,2}|20\d{2}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})(.*?)(\d{2}g\d{2})(\d{2,3})/g;
             let match;
 
@@ -349,9 +349,10 @@
                 } else return [];
             }
 
-            const rawString = text.replace(/\n/g, ' ');
-            // Regex siêu chịu lỗi, bỏ qua các môn không có phòng/giờ học (như Đồ án, Thực tập)
-            const regex = /([A-Z]{2,3}\d{4})\s*(.+?)\s*(\d)\s*(\d)\s*([A-Za-z0-9_]+)\s*(\d)\s*(\d{1,2}\s*-\s*\d{1,2})\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})\s*(.*?)\s*(BK-[A-Za-z0-9\-]+|CS-DiAn|NGOAITRUONG)\s*((?:\d{2}|--)(?:\|(?:\d{2}|--))+)/g;
+            const rawString = text.replace(/[\n\t]/g, ' ');
+            
+            // Regex siêu chịu lỗi, chống nuốt chửng các môn có dấu `--` bằng cách check (?![A-Z]{2,3}\d{4})
+            const regex = /([A-Z]{2,3}\d{4})\s+((?:(?![A-Z]{2,3}\d{4}).)+?)\s+(\d+)\s+(\d+)\s+([A-Za-z0-9_]+(?:\s+\d+)?)\s+([2-8]|--)\s+(\d{1,2}\s*-\s*\d{1,2}|--)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}|--)\s+(.*?)\s+(BK-[A-Za-z0-9\-]+|CS-[A-Za-z0-9]+|NGOAITRUONG|--)\s+((?:\d{2}|--)(?:\|(?:\d{2}|--))*\|?)/g;
             let match;
 
             while ((match = regex.exec(rawString)) !== null) {
@@ -361,44 +362,49 @@
                     const tc = match[3];
                     const tchp = match[4];
                     const group = match[5];
-                    const dayOfWeek = parseInt(match[6]); // Từ 2-7
+                    const dayOfWeekStr = match[6];
                     const timeRaw = match[8];
                     const room = match[9].trim();
                     const weeksStr = match[11];
 
+                    // QUAN TRỌNG: Bỏ qua các môn học không có Lịch cố định (Đồ án, Thực tập, v.v...)
+                    if (dayOfWeekStr === '--' || timeRaw === '--') {
+                        continue;
+                    }
+
+                    const dayOfWeek = parseInt(dayOfWeekStr);
                     const [startTimeStr, endTimeStr] = timeRaw.split('-').map(s => s.trim());
                     const [startH, startM] = startTimeStr.split(':').map(Number);
                     const [endH, endM] = endTimeStr.split(':').map(Number);
 
-                    const weeks = weeksStr.split('|');
+                    // Lọc bỏ những ô rỗng do split hoặc những tuần nghỉ (--)
+                    const weeks = weeksStr.split('|').filter(w => w !== '' && w !== '--');
 
-                    // Tạo sự kiện cho mỗi tuần học có trong chuỗi (bỏ qua tuần '--')
+                    // Tạo sự kiện cho mỗi tuần học có trong chuỗi 
                     weeks.forEach(w => {
-                        if(w !== '--') {
-                            let weekNum = parseInt(w);
-                            let eventDate = new Date(mondayOfWeek1);
-                            
-                            eventDate.setDate(eventDate.getDate() + (weekNum - 1) * 7);
-                            let addDays = dayOfWeek === 8 ? 6 : dayOfWeek - 2; // Chủ nhật=8
-                            eventDate.setDate(eventDate.getDate() + addDays);
+                        let weekNum = parseInt(w);
+                        let eventDate = new Date(mondayOfWeek1);
+                        
+                        eventDate.setDate(eventDate.getDate() + (weekNum - 1) * 7);
+                        let addDays = dayOfWeek === 8 ? 6 : dayOfWeek - 2; // Chủ nhật=8
+                        eventDate.setDate(eventDate.getDate() + addDays);
 
-                            let startDT = new Date(eventDate);
-                            startDT.setHours(startH, startM, 0, 0);
+                        let startDT = new Date(eventDate);
+                        startDT.setHours(startH, startM, 0, 0);
 
-                            let endDT = new Date(eventDate);
-                            endDT.setHours(endH, endM, 0, 0);
+                        let endDT = new Date(eventDate);
+                        endDT.setHours(endH, endM, 0, 0);
 
-                            events.push({
-                                summary: `[Học] ${subjectName}`,
-                                location: room || "Xem TKB",
-                                description: `Mã môn học: ${subjectCode}\nTín chỉ: ${tc}\nTín chỉ học phí: ${tchp}\nNhóm - Tổ: ${group}`,
-                                start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
-                                end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
-                                _parentSubject: subjectName,
-                                _rawTimeStr: timeRaw,
-                                _rawDateStr: startDT.toLocaleDateString('vi-VN')
-                            });
-                        }
+                        events.push({
+                            summary: `[Học] ${subjectName}`,
+                            location: room || "Xem TKB",
+                            description: `Mã môn học: ${subjectCode}\nTín chỉ: ${tc}\nTín chỉ học phí: ${tchp}\nNhóm - Tổ: ${group}`,
+                            start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                            end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                            _parentSubject: subjectName,
+                            _rawTimeStr: timeRaw,
+                            _rawDateStr: startDT.toLocaleDateString('vi-VN')
+                        });
                     });
                 } catch (e) { console.error("Lỗi parse lớp học", e); }
             }
