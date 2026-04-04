@@ -352,15 +352,20 @@
                                 const timeParts = timeRaw.split('g');
                                 const startDT = new Date(`${date}T00:00:00+07:00`);
                                 startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
-                                const endDT = new Date(startDT.getTime() + parseInt(durationRaw) * 60000);
+                                
+                                // Tối ưu: Bắt đầu làm bài sau 15p
+                                const writingStartDT = new Date(startDT.getTime() + 15 * 60000);
+                                const endDT = new Date(writingStartDT.getTime() + parseInt(durationRaw) * 60000);
+
+                                const writingStartStr = `${writingStartDT.getHours().toString().padStart(2, '0')}g${writingStartDT.getMinutes().toString().padStart(2, '0')}`;
 
                                 events.push({
                                     summary: `[${type}] ${subjectName}`,
                                     location: room,
-                                    description: `Thời gian làm bài: ${durationRaw} phút`,
+                                    description: `Giờ có mặt: ${timeRaw}\nBắt đầu làm bài: ${writingStartStr}\nThời gian làm bài: ${durationRaw} phút`,
                                     start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
                                     end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
-                                    _rawTimeStr: `${timeRaw} (${durationRaw}')`,
+                                    _rawTimeStr: `${timeRaw} (+15p)`,
                                     _rawDateStr: date
                                 });
                                 hasTab = true;
@@ -374,7 +379,6 @@
 
             // Cách 2: Thuật toán quét toàn văn bằng Regex cho trường hợp copy bị mất Tab
             const rawString = text.replace(/[\n\t]/g, ' ');
-            // Đã fix: Thêm \s* giữa giờ (\d{2}g\d{2}) và phút (\d{2,3}) để bù trừ khoảng trắng
             const regex = /([A-Z]{2,3}\d{4})\s*-\s*(.+?)(?=[A-Z]{1,2}\d{1,2}|20\d{2}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})(.*?)(\d{2}g\d{2})\s*(\d{2,3})/g;
             let match;
 
@@ -399,15 +403,20 @@
                     const timeParts = timeRaw.split('g');
                     const startDT = new Date(`${date}T00:00:00+07:00`);
                     startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
-                    const endDT = new Date(startDT.getTime() + parseInt(durationRaw) * 60000);
+                    
+                    // Tối ưu: Bắt đầu làm bài sau 15p
+                    const writingStartDT = new Date(startDT.getTime() + 15 * 60000);
+                    const endDT = new Date(writingStartDT.getTime() + parseInt(durationRaw) * 60000);
+                    
+                    const writingStartStr = `${writingStartDT.getHours().toString().padStart(2, '0')}g${writingStartDT.getMinutes().toString().padStart(2, '0')}`;
 
                     events.push({
                         summary: `[${type}] ${subjectName}`,
                         location: room,
-                        description: `Thời gian làm bài: ${durationRaw} phút`,
+                        description: `Giờ có mặt: ${timeRaw}\nBắt đầu làm bài: ${writingStartStr}\nThời gian làm bài: ${durationRaw} phút`,
                         start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
                         end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
-                        _rawTimeStr: `${timeRaw} (${durationRaw}')`,
+                        _rawTimeStr: `${timeRaw} (+15p)`,
                         _rawDateStr: date
                     });
                 } catch (e) {}
