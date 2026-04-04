@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📅 BKalendar Sync - DCalen</title>
+    <title>BKalendar Sync - DCalen</title>
     <!-- Favicon tối ưu để thay thế quả địa cầu -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📅%3C/text%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -90,11 +90,19 @@
 
                     <div class="mt-4 pt-4 border-t flex flex-col gap-3">
                         <div id="authSection" class="flex flex-col gap-2 text-center">
-                            <p class="text-sm text-gray-600 italic mb-2">Đăng nhập để tự động tạo lịch học kỳ</p>
-                            <button id="authBtn" onclick="handleAuthClick()" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-3">
-                                <img src="https://www.google.com/favicon.ico" alt="Google" class="w-5 h-5">
-                                Đăng nhập tài khoản Bách khoa
-                            </button>
+                            <!-- Trạng thái chờ auto-login -->
+                            <div id="authLoading" class="hidden py-4">
+                                <span class="loader mr-2"></span>
+                                <span class="text-sm text-gray-500">Đang kiểm tra kết nối Google...</span>
+                            </div>
+                            <!-- Nút đăng nhập -->
+                            <div id="authLogin">
+                                <p class="text-sm text-gray-600 italic mb-2">Đăng nhập để tự động tạo lịch học kỳ</p>
+                                <button id="authBtn" onclick="handleAuthClick()" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-3 font-sans">
+                                    <img src="https://www.google.com/favicon.ico" alt="Google" class="w-5 h-5">
+                                    Đăng nhập tài khoản Bách khoa
+                                </button>
+                            </div>
                         </div>
 
                         <div id="syncSection" class="hidden flex-col gap-3">
@@ -157,9 +165,15 @@
         let isGsiLoaded = false;
         
         let parsedEvents = [];
-        let parsedType = ""; // 'exam' hoặc 'class'
-        let parsedSemester = ""; // Ví dụ: '252'
+        let parsedType = ""; 
+        let parsedSemester = ""; 
         let targetCalendarId = null;
+
+        // Kiểm tra xem có nên hiện trạng thái loading ngay từ đầu không
+        if (localStorage.getItem('mybk_logged_in') === 'true') {
+            document.getElementById('authLogin').classList.add('hidden');
+            document.getElementById('authLoading').classList.remove('hidden');
+        }
 
         if (!CLIENT_ID) {
             document.getElementById('setupModal').classList.remove('hidden');
@@ -189,7 +203,11 @@
                 await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
                 isGapiLoaded = true;
                 tryAutoSignIn();
-            } catch (err) { console.error('Lỗi khởi tạo GAPI: ', err); }
+            } catch (err) { 
+                console.error('Lỗi khởi tạo GAPI: ', err);
+                document.getElementById('authLoading').classList.add('hidden');
+                document.getElementById('authLogin').classList.remove('hidden');
+            }
         }
 
         function gisLoaded() {
@@ -206,24 +224,25 @@
 
         window.onload = () => { if(window.gapi) gapiLoaded(); if(window.google) gisLoaded(); };
 
-        // Hàm tự động đăng nhập nếu đã từng đăng nhập trước đó
         function tryAutoSignIn() {
             if (isGapiLoaded && isGsiLoaded && localStorage.getItem('mybk_logged_in') === 'true') {
-                // Yêu cầu token âm thầm (không hiện prompt consent nếu còn hiệu lực)
+                // Yêu cầu token âm thầm
                 tokenClient.requestAccessToken({ prompt: '' });
             }
         }
 
         function handleAuthResponse(resp) {
             if (resp.error !== undefined) {
-                // Nếu auto-sign-in thất bại (ví dụ token hết hạn hoặc thu hồi), xóa trạng thái lưu
-                if (localStorage.getItem('mybk_logged_in') === 'true') {
-                    localStorage.removeItem('mybk_logged_in');
-                }
+                console.error("Lỗi Auth:", resp.error);
+                localStorage.removeItem('mybk_logged_in');
+                document.getElementById('authLoading').classList.add('hidden');
+                document.getElementById('authLogin').classList.remove('hidden');
                 return;
             }
             
-            // Lưu trạng thái đăng nhập thành công
+            // QUAN TRỌNG: Gán token vào GAPI để có thể gọi Calendar API
+            gapi.client.setToken(resp);
+            
             localStorage.setItem('mybk_logged_in', 'true');
             
             // Cập nhật giao diện
@@ -239,7 +258,6 @@
                 document.getElementById('setupModal').classList.remove('hidden');
                 return;
             }
-            // Hiện popup đăng nhập bình thường
             tokenClient.requestAccessToken({ prompt: 'consent' });
         }
 
@@ -251,8 +269,9 @@
             }
             localStorage.removeItem('mybk_logged_in');
             
-            // Reset giao diện
             document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('authLogin').classList.remove('hidden');
+            document.getElementById('authLoading').classList.add('hidden');
             document.getElementById('syncSection').classList.add('hidden');
             document.getElementById('logoutBtn').classList.add('hidden');
             alert("Đã đăng xuất tài khoản Google.");
@@ -298,7 +317,6 @@
             }
         });
 
-        // 1. Logic xử lý LỊCH THI
         function parseExamSchedule(text) {
             const events = [];
             const rawString = text.replace(/[\n\t]/g, ' ');
@@ -347,7 +365,6 @@
             return events;
         }
 
-        // 2. Logic xử lý THỜI KHÓA BIỂU
         function parseClassSchedule(text) {
             const events = [];
             let anchorMatch = text.match(/Tuần:\s*(\d+)\s*,\s*Thứ\s*[^\s,]+,\s*Ngày\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
@@ -422,7 +439,6 @@
             return events;
         }
 
-        // --- RENDER TABLE ---
         function renderTable(events, type) {
             const tbody = document.getElementById('eventsTableBody');
             tbody.innerHTML = '';
@@ -450,7 +466,6 @@
             }
         }
 
-        // --- SYNC FUNCTION ---
         async function syncToCalendar() {
             if(parsedEvents.length === 0) return;
             const btn = document.getElementById('syncBtn');
