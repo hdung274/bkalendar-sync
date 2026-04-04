@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BKalendar Sync - myBk to Google Calendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen">
+
+    <div class="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
+        <header class="flex items-center justify-between border-b pb-4 mb-6">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Đồng bộ Lịch thi myBk</h1>
+                    <p class="text-sm text-gray-500">Chuyển dữ liệu từ Bách Khoa sang Google Calendar</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('setupModal').classList.remove('hidden')" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-md transition duration-200 font-medium">
+                ⚙️ Cài đặt API Key
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span class="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
+                    Dán toàn bộ trang web
+                </h2>
+                <p class="text-sm text-gray-600 mb-3">Chỉ cần nhấn <strong>Ctrl + A</strong> trên trang xem lịch thi myBk, Copy và <strong>Dán tất cả</strong> vào ô bên dưới.</p>
+                
+                <textarea id="rawInput" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono whitespace-pre" placeholder="Nhấn Ctrl + V để dán toàn bộ văn bản vào đây..."></textarea>
+                
+                <button id="parseBtn" class="mt-4 w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    Phân tích dữ liệu
+                </button>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span class="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+                    Kiểm tra & Đồng bộ
+                </h2>
+                
+                <div id="emptyState" class="flex-1 flex flex-col items-center justify-center text-gray-400 py-10">
+                    <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <p>Chưa có dữ liệu phân tích.</p>
+                </div>
+
+                <div id="resultState" class="hidden flex-1 flex flex-col">
+                    <div class="overflow-auto flex-1 border border-gray-200 rounded-lg max-h-[300px]">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-2">Môn học</th>
+                                    <th class="px-4 py-2">Thời gian</th>
+                                    <th class="px-4 py-2">Phòng</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eventsTableBody" class="divide-y divide-gray-200">
+                                </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800 flex justify-between items-center font-medium">
+                        <span id="eventCount">Tìm thấy 0 sự kiện</span>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t flex flex-col gap-3">
+                        <div id="authSection" class="flex flex-col gap-2">
+                            <p class="text-sm text-gray-600 text-center">Đăng nhập email trường để thêm vào lịch</p>
+                            <button id="authBtn" onclick="handleAuthClick()" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-3">
+                                <img src="https://www.google.com/favicon.ico" alt="Google" class="w-5 h-5">
+                                Đăng nhập tài khoản Bách Khoa
+                            </button>
+                        </div>
+
+                        <div id="syncSection" class="hidden flex-col gap-2">
+                            <p class="text-sm text-green-600 text-center flex items-center justify-center gap-1 font-medium bg-green-50 py-1.5 rounded-md">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                Đã kết nối Google Calendar
+                            </p>
+                            <button id="syncBtn" onclick="syncToCalendar()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2 shadow-md">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                                Bắt đầu thêm vào Lịch
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-gray-900 text-green-400 font-mono text-sm p-4 rounded-lg hidden" id="logArea">
+            <div id="logContent" class="h-32 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="setupModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                <h3 class="text-lg font-bold text-gray-900">Cấu hình Google API Client ID</h3>
+                <button onclick="document.getElementById('setupModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-800">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 text-sm text-blue-800">
+                    Để ứng dụng hoạt động, bạn cần nhập Client ID từ Google Cloud Console. Dữ liệu này được lưu trực tiếp trên trình duyệt của bạn.
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Google Client ID:</label>
+                    <input type="text" id="clientIdInput" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="VD: 123456789-abcxyz.apps.googleusercontent.com">
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
+                <button onclick="document.getElementById('setupModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-md transition font-medium">Hủy</button>
+                <button onclick="saveClientId()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition font-medium shadow-sm">Lưu cấu hình</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GOOGLE API CONFIGURATION ---
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+        let CLIENT_ID = localStorage.getItem('mybk_client_id') || '';
+
+        let tokenClient;
+        let isGapiLoaded = false;
+        let isGsiLoaded = false;
+        let parsedEvents = [];
+
+        if (!CLIENT_ID) {
+            document.getElementById('setupModal').classList.remove('hidden');
+        } else {
+            document.getElementById('clientIdInput').value = CLIENT_ID;
+        }
+
+        function saveClientId() {
+            const val = document.getElementById('clientIdInput').value.trim();
+            if(val) {
+                CLIENT_ID = val;
+                localStorage.setItem('mybk_client_id', CLIENT_ID);
+                document.getElementById('setupModal').classList.add('hidden');
+                initGoogleClients(); 
+                alert("Đã lưu Client ID. Nút đăng nhập đã sẵn sàng!");
+            } else {
+                alert("Vui lòng nhập Client ID!");
+            }
+        }
+
+        // --- GOOGLE API INITIALIZATION ---
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            if(!CLIENT_ID) return;
+            try {
+                await gapi.client.init({
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                isGapiLoaded = true;
+            } catch (err) {
+                console.error('Lỗi khởi tạo GAPI: ', err);
+            }
+        }
+
+        function gisLoaded() {
+            if(!CLIENT_ID) return;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                hosted_domain: 'hcmut.edu.vn', // Giới hạn tài khoản Bách Khoa
+                callback: '', 
+            });
+            isGsiLoaded = true;
+        }
+
+        function initGoogleClients() {
+            if(window.gapi) gapiLoaded();
+            if(window.google) gisLoaded();
+        }
+        
+        window.onload = initGoogleClients;
+
+        function handleAuthClick() {
+            if(!CLIENT_ID) {
+                alert("Vui lòng nhập Client ID ở nút Cài đặt API Key trước!");
+                document.getElementById('setupModal').classList.remove('hidden');
+                return;
+            }
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    alert("Đăng nhập thất bại!");
+                    return;
+                }
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('syncSection').classList.remove('hidden');
+                document.getElementById('syncSection').classList.add('flex');
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        // --- PARSING LOGIC ---
+        document.getElementById('parseBtn').addEventListener('click', () => {
+            const rawText = document.getElementById('rawInput').value;
+            if(!rawText.trim()) {
+                alert("Vui lòng dán dữ liệu!");
+                return;
+            }
+            
+            parsedEvents = parseMyBkSchedule(rawText);
+            
+            if(parsedEvents.length > 0) {
+                renderTable(parsedEvents);
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('resultState').classList.remove('hidden');
+            } else {
+                alert("Không tìm thấy dữ liệu. Hãy đảm bảo bạn nhấn Ctrl+A toàn bộ trang lịch thi và dán vào đây.");
+            }
+        });
+
+        function parseMyBkSchedule(text) {
+            const events = [];
+
+            // 1. Quét theo dạng Tab-separated (nếu copy chuẩn từ bảng)
+            const lines = text.split('\n');
+            for (let line of lines) {
+                if (line.includes('\t')) {
+                    const cols = line.split('\t').map(c => c.trim());
+                    const dateColIndex = cols.findIndex(c => /\d{4}-\d{2}-\d{2}/.test(c));
+                    if (dateColIndex !== -1 && cols.length >= 8) {
+                        try {
+                            const date = cols[dateColIndex]; 
+                            const subject = cols[dateColIndex - 2]; 
+                            const type = cols[dateColIndex + 1]; 
+                            const campus = cols[dateColIndex + 2];
+                            const room = cols[dateColIndex + 3];
+                            const timeRaw = cols.find(c => /\d{2}g\d{2}/.test(c)); 
+                            const durationRaw = cols[cols.indexOf(timeRaw) + 1] || "60"; 
+
+                            if (date && timeRaw && subject) {
+                                events.push(createEventObject(subject, date, timeRaw, durationRaw, campus, room, type));
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            if (events.length > 0) return events;
+
+            // 2. Thuật toán quét toàn văn bằng Regex cho trường hợp Ctrl+A
+            const rawString = text.replace(/\n/g, ' ');
+            const regex = /([A-Z]{2,3}\d{4})\s*-\s*(.+?)(?=[A-Z]{1,2}\d{1,2}|20\d{2}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})(.*?)(\d{2}g\d{2})(\d{2,3})/g;
+            let match;
+
+            while ((match = regex.exec(rawString)) !== null) {
+                try {
+                    const subjectCode = match[1];
+                    const subjectName = match[2].trim();
+                    const fullSubject = `${subjectCode} - ${subjectName}`;
+                    const date = match[3];
+                    let roomRaw = match[4].trim(); 
+                    const timeRaw = match[5];
+                    const durationRaw = match[6];
+
+                    let type = "Thi";
+                    if (roomRaw.startsWith("CK")) { type = "CK"; roomRaw = roomRaw.substring(2); }
+                    else if (roomRaw.startsWith("GK")) { type = "GK"; roomRaw = roomRaw.substring(2); }
+
+                    let campus = "";
+                    if (roomRaw.startsWith("BK-CS1")) { campus = "BK-CS1"; roomRaw = roomRaw.substring(6); }
+                    else if (roomRaw.startsWith("BK-CS2")) { campus = "BK-CS2"; roomRaw = roomRaw.substring(6); }
+
+                    roomRaw = roomRaw.replace(/\d$/, ''); // Cắt số Thứ
+                    const room = roomRaw || "Xem trên MyBk";
+
+                    events.push(createEventObject(fullSubject, date, timeRaw, durationRaw, campus, room, type));
+                } catch (e) {}
+            }
+
+            return events;
+        }
+
+        function createEventObject(subject, dateStr, timeStr, durationStr, campus, room, type) {
+            const timeParts = timeStr.split('g');
+            const hours = parseInt(timeParts[0]);
+            const minutes = parseInt(timeParts[1]);
+            const duration = parseInt(durationStr);
+
+            const startDateTime = new Date(`${dateStr}T00:00:00+07:00`);
+            startDateTime.setHours(hours, minutes, 0, 0);
+            const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+
+            let typeText = type === "CK" ? "Thi Cuối Kỳ" : (type === "GK" ? "Thi Giữa Kỳ" : "Thi");
+
+            return {
+                summary: `[${typeText}] ${subject}`,
+                location: `${campus ? campus + ' ' : ''}${room}, Đại học Bách Khoa TP.HCM`.trim(),
+                description: `Thời gian làm bài: ${duration} phút\nLoại thi: ${typeText}`,
+                start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                _rawTimeStr: `${timeStr} (${duration} phút)`,
+                _rawDateStr: dateStr
+            };
+        }
+
+        function renderTable(events) {
+            const tbody = document.getElementById('eventsTableBody');
+            tbody.innerHTML = '';
+            events.forEach(ev => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 border-b";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-medium text-gray-900">${ev.summary}</td>
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">
+                        <div class="font-medium text-gray-800">${ev._rawDateStr}</div>
+                        <div class="text-xs">${ev._rawTimeStr}</div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">${ev.location}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('eventCount').innerText = `Tìm thấy ${events.length} môn thi`;
+        }
+
+        // --- GOOGLE CALENDAR SYNC LOGIC ---
+        async function syncToCalendar() {
+            if(parsedEvents.length === 0) return;
+            
+            const btn = document.getElementById('syncBtn');
+            const originalBtnHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="loader mr-2 border-white border-t-blue-200"></span> Đang đồng bộ...`;
+            
+            const logContainer = document.getElementById('logArea');
+            logContainer.classList.remove('hidden');
+            document.getElementById('logContent').innerHTML = '';
+            log(`Bắt đầu đồng bộ ${parsedEvents.length} sự kiện...`);
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let event of parsedEvents) {
+                try {
+                    const request = {
+                        'calendarId': 'primary',
+                        'resource': {
+                            'summary': event.summary,
+                            'location': event.location,
+                            'description': event.description,
+                            'start': event.start,
+                            'end': event.end,
+                            'colorId': '11', 
+                            'reminders': {
+                                'useDefault': false,
+                                'overrides': [
+                                    {'method': 'popup', 'minutes': 24 * 60}, 
+                                    {'method': 'popup', 'minutes': 60}       
+                                ]
+                            }
+                        }
+                    };
+
+                    await gapi.client.calendar.events.insert(request);
+                    log(`✅ Đã thêm: ${event.summary}`);
+                    successCount++;
+                } catch (error) {
+                    console.error(error);
+                    log(`❌ Lỗi thêm môn ${event.summary}`, true);
+                    errorCount++;
+                }
+            }
+
+            log(`\n🎉 Hoàn tất! Thành công: ${successCount}, Lỗi: ${errorCount}`);
+            
+            btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Hoàn thành`;
+            setTimeout(() => {
+                btn.innerHTML = originalBtnHTML;
+                btn.disabled = false;
+            }, 3000);
+        }
+
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.textContent = `> ${message}`;
+            if(isError) div.className = "text-red-400";
+            const container = document.getElementById('logContent');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>
