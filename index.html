@@ -25,8 +25,8 @@
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Đồng bộ Lịch thi myBk</h1>
-                    <p class="text-sm text-gray-500">Chuyển dữ liệu từ Bách Khoa sang Google Calendar</p>
+                    <h1 class="text-2xl font-bold text-gray-900">Đồng bộ Lịch Bách Khoa</h1>
+                    <p class="text-sm text-gray-500">Hỗ trợ cả Lịch thi và Thời khóa biểu học kỳ</p>
                 </div>
             </div>
             <button onclick="document.getElementById('setupModal').classList.remove('hidden')" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-md transition duration-200 font-medium">
@@ -41,7 +41,7 @@
                     <span class="bg-blue-100 text-blue-700 w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
                     Dán toàn bộ trang web
                 </h2>
-                <p class="text-sm text-gray-600 mb-3">Chỉ cần nhấn <strong>Ctrl + A</strong> trên trang xem lịch thi myBk, Copy và <strong>Dán tất cả</strong> vào ô bên dưới.</p>
+                <p class="text-sm text-gray-600 mb-3">Chỉ cần nhấn <strong>Ctrl + A</strong> trên trang xem lịch thi hoặc Thời khóa biểu, Copy và <strong>Dán tất cả</strong> vào ô bên dưới.</p>
                 
                 <textarea id="rawInput" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono whitespace-pre" placeholder="Nhấn Ctrl + V để dán toàn bộ văn bản vào đây..."></textarea>
                 
@@ -63,7 +63,7 @@
                 </div>
 
                 <div id="resultState" class="hidden flex-1 flex flex-col">
-                    <div class="overflow-auto flex-1 border border-gray-200 rounded-lg max-h-[300px]">
+                    <div class="overflow-auto flex-1 border border-gray-200 rounded-lg max-h-[250px]">
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
                                 <tr>
@@ -73,15 +73,16 @@
                                 </tr>
                             </thead>
                             <tbody id="eventsTableBody" class="divide-y divide-gray-200">
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
                     
-                    <div class="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800 flex justify-between items-center font-medium">
+                    <div class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 flex justify-between items-center font-medium">
                         <span id="eventCount">Tìm thấy 0 sự kiện</span>
                     </div>
 
                     <div class="mt-4 pt-4 border-t flex flex-col gap-3">
+                        <!-- Màn hình Đăng nhập -->
                         <div id="authSection" class="flex flex-col gap-2">
                             <p class="text-sm text-gray-600 text-center">Đăng nhập email trường để thêm vào lịch</p>
                             <button id="authBtn" onclick="handleAuthClick()" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-3">
@@ -90,12 +91,19 @@
                             </button>
                         </div>
 
-                        <div id="syncSection" class="hidden flex-col gap-2">
+                        <!-- Màn hình Chọn lịch & Đồng bộ -->
+                        <div id="syncSection" class="hidden flex-col gap-3">
                             <p class="text-sm text-green-600 text-center flex items-center justify-center gap-1 font-medium bg-green-50 py-1.5 rounded-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                 Đã kết nối Google Calendar
                             </p>
-                            <button id="syncBtn" onclick="syncToCalendar()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2 shadow-md">
+                            
+                            <div id="calendarSelectionBlock" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Chọn Lịch để lưu:</label>
+                                <select id="calendarSelector" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white"></select>
+                            </div>
+
+                            <button id="syncBtn" onclick="syncToCalendar()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2 shadow-md mt-1">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                                 Bắt đầu thêm vào Lịch
                             </button>
@@ -110,6 +118,7 @@
         </div>
     </div>
 
+    <!-- Modal Cài đặt API -->
     <div id="setupModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
@@ -125,6 +134,9 @@
                 <div class="mb-4">
                     <label class="block text-sm font-bold text-gray-700 mb-2">Google Client ID:</label>
                     <input type="text" id="clientIdInput" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 font-mono text-sm" placeholder="VD: 123456789-abcxyz.apps.googleusercontent.com">
+                    <p class="mt-2 text-xs text-gray-500">
+                        *Lưu ý: Mục <strong>Authorized JavaScript origins</strong> chỉ điền tên miền gốc (VD: <span class="font-mono text-gray-700">https://tenban.github.io</span>), tuyệt đối không có dấu <code>/</code> ở cuối đuôi.
+                    </p>
                 </div>
             </div>
             <div class="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
@@ -137,13 +149,16 @@
     <script>
         // --- GOOGLE API CONFIGURATION ---
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+        // Đổi scope để có thể đọc được danh sách Lịch của người dùng
+        const SCOPES = 'https://www.googleapis.com/auth/calendar';
         let CLIENT_ID = localStorage.getItem('mybk_client_id') || '';
 
         let tokenClient;
         let isGapiLoaded = false;
         let isGsiLoaded = false;
+        
         let parsedEvents = [];
+        let parsedType = ""; // 'exam' hoặc 'class'
 
         if (!CLIENT_ID) {
             document.getElementById('setupModal').classList.remove('hidden');
@@ -165,20 +180,14 @@
         }
 
         // --- GOOGLE API INITIALIZATION ---
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
-        }
+        function gapiLoaded() { gapi.load('client', initializeGapiClient); }
 
         async function initializeGapiClient() {
             if(!CLIENT_ID) return;
             try {
-                await gapi.client.init({
-                    discoveryDocs: [DISCOVERY_DOC],
-                });
+                await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
                 isGapiLoaded = true;
-            } catch (err) {
-                console.error('Lỗi khởi tạo GAPI: ', err);
-            }
+            } catch (err) { console.error('Lỗi khởi tạo GAPI: ', err); }
         }
 
         function gisLoaded() {
@@ -186,18 +195,13 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                hosted_domain: 'hcmut.edu.vn', // Giới hạn tài khoản Bách Khoa
+                hosted_domain: 'hcmut.edu.vn', 
                 callback: '', 
             });
             isGsiLoaded = true;
         }
 
-        function initGoogleClients() {
-            if(window.gapi) gapiLoaded();
-            if(window.google) gisLoaded();
-        }
-        
-        window.onload = initGoogleClients;
+        window.onload = () => { if(window.gapi) gapiLoaded(); if(window.google) gisLoaded(); };
 
         function handleAuthClick() {
             if(!CLIENT_ID) {
@@ -206,13 +210,14 @@
                 return;
             }
             tokenClient.callback = async (resp) => {
-                if (resp.error !== undefined) {
-                    alert("Đăng nhập thất bại!");
-                    return;
-                }
+                if (resp.error !== undefined) { alert("Đăng nhập thất bại!"); return; }
+                
                 document.getElementById('authSection').classList.add('hidden');
                 document.getElementById('syncSection').classList.remove('hidden');
                 document.getElementById('syncSection').classList.add('flex');
+                
+                // Load danh sách Lịch
+                loadCalendars();
             };
 
             if (gapi.client.getToken() === null) {
@@ -222,64 +227,63 @@
             }
         }
 
+        async function loadCalendars() {
+            try {
+                const response = await gapi.client.calendar.calendarList.list();
+                const calendars = response.result.items;
+                const select = document.getElementById('calendarSelector');
+                select.innerHTML = '';
+                calendars.forEach(cal => {
+                    // Chỉ lấy những lịch user có quyền ghi
+                    if (cal.accessRole === 'writer' || cal.accessRole === 'owner') {
+                        const option = document.createElement('option');
+                        option.value = cal.id;
+                        option.text = cal.summary + (cal.primary ? ' (Mặc định)' : '');
+                        select.appendChild(option);
+                    }
+                });
+                document.getElementById('calendarSelectionBlock').classList.remove('hidden');
+            } catch (e) { console.error("Lỗi lấy danh sách lịch:", e); }
+        }
+
         // --- PARSING LOGIC ---
         document.getElementById('parseBtn').addEventListener('click', () => {
             const rawText = document.getElementById('rawInput').value;
-            if(!rawText.trim()) {
-                alert("Vui lòng dán dữ liệu!");
-                return;
+            if(!rawText.trim()) { alert("Vui lòng dán dữ liệu!"); return; }
+            
+            // TỰ ĐỘNG PHÂN BIỆT LOẠI LỊCH
+            if (rawText.includes("THỜI KHÓA BIỂU")) {
+                parsedEvents = parseClassSchedule(rawText);
+                parsedType = 'class';
+            } else if (rawText.includes("LỊCH KIỂM TRA")) {
+                parsedEvents = parseExamSchedule(rawText);
+                parsedType = 'exam';
+            } else {
+                // Thử đoán
+                let testClass = parseClassSchedule(rawText);
+                if(testClass.length > 0) { parsedEvents = testClass; parsedType = 'class'; }
+                else { parsedEvents = parseExamSchedule(rawText); parsedType = 'exam'; }
             }
             
-            parsedEvents = parseMyBkSchedule(rawText);
-            
             if(parsedEvents.length > 0) {
-                renderTable(parsedEvents);
+                renderTable(parsedEvents, parsedType);
                 document.getElementById('emptyState').classList.add('hidden');
                 document.getElementById('resultState').classList.remove('hidden');
             } else {
-                alert("Không tìm thấy dữ liệu. Hãy đảm bảo bạn nhấn Ctrl+A toàn bộ trang lịch thi và dán vào đây.");
+                alert("Không tìm thấy dữ liệu. Hãy đảm bảo bạn nhấn Ctrl+A toàn bộ trang và dán vào đây.");
             }
         });
 
-        function parseMyBkSchedule(text) {
+        // 1. Logic xử lý LỊCH THI
+        function parseExamSchedule(text) {
             const events = [];
-
-            // 1. Quét theo dạng Tab-separated (nếu copy chuẩn từ bảng)
-            const lines = text.split('\n');
-            for (let line of lines) {
-                if (line.includes('\t')) {
-                    const cols = line.split('\t').map(c => c.trim());
-                    const dateColIndex = cols.findIndex(c => /\d{4}-\d{2}-\d{2}/.test(c));
-                    if (dateColIndex !== -1 && cols.length >= 8) {
-                        try {
-                            const date = cols[dateColIndex]; 
-                            const subject = cols[dateColIndex - 2]; 
-                            const type = cols[dateColIndex + 1]; 
-                            const campus = cols[dateColIndex + 2];
-                            const room = cols[dateColIndex + 3];
-                            const timeRaw = cols.find(c => /\d{2}g\d{2}/.test(c)); 
-                            const durationRaw = cols[cols.indexOf(timeRaw) + 1] || "60"; 
-
-                            if (date && timeRaw && subject) {
-                                events.push(createEventObject(subject, date, timeRaw, durationRaw, campus, room, type));
-                            }
-                        } catch (e) {}
-                    }
-                }
-            }
-
-            if (events.length > 0) return events;
-
-            // 2. Thuật toán quét toàn văn bằng Regex cho trường hợp Ctrl+A
             const rawString = text.replace(/\n/g, ' ');
             const regex = /([A-Z]{2,3}\d{4})\s*-\s*(.+?)(?=[A-Z]{1,2}\d{1,2}|20\d{2}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})(.*?)(\d{2}g\d{2})(\d{2,3})/g;
             let match;
 
             while ((match = regex.exec(rawString)) !== null) {
                 try {
-                    const subjectCode = match[1];
                     const subjectName = match[2].trim();
-                    const fullSubject = `${subjectCode} - ${subjectName}`;
                     const date = match[3];
                     let roomRaw = match[4].trim(); 
                     const timeRaw = match[5];
@@ -289,63 +293,161 @@
                     if (roomRaw.startsWith("CK")) { type = "CK"; roomRaw = roomRaw.substring(2); }
                     else if (roomRaw.startsWith("GK")) { type = "GK"; roomRaw = roomRaw.substring(2); }
 
-                    let campus = "";
-                    if (roomRaw.startsWith("BK-CS1")) { campus = "BK-CS1"; roomRaw = roomRaw.substring(6); }
-                    else if (roomRaw.startsWith("BK-CS2")) { campus = "BK-CS2"; roomRaw = roomRaw.substring(6); }
+                    // Cắt bỏ mã cơ sở và số thứ tự
+                    if (roomRaw.startsWith("BK-CS1")) roomRaw = roomRaw.substring(6);
+                    else if (roomRaw.startsWith("BK-CS2")) roomRaw = roomRaw.substring(6);
+                    roomRaw = roomRaw.replace(/\d$/, ''); 
 
-                    roomRaw = roomRaw.replace(/\d$/, ''); // Cắt số Thứ
                     const room = roomRaw || "Xem trên MyBk";
+                    
+                    const timeParts = timeRaw.split('g');
+                    const startDT = new Date(`${date}T00:00:00+07:00`);
+                    startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
+                    const endDT = new Date(startDT.getTime() + parseInt(durationRaw) * 60000);
 
-                    events.push(createEventObject(fullSubject, date, timeRaw, durationRaw, campus, room, type));
+                    // Yêu cầu: Format [CK] Điện tử Y sinh, vị trí H6-201
+                    events.push({
+                        summary: `[${type}] ${subjectName}`,
+                        location: room,
+                        description: `Thời gian làm bài: ${durationRaw} phút`,
+                        start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                        end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                        _rawTimeStr: `${timeRaw} (${durationRaw}')`,
+                        _rawDateStr: date
+                    });
                 } catch (e) {}
+            }
+            return events;
+        }
+
+        // 2. Logic xử lý THỜI KHÓA BIỂU
+        function parseClassSchedule(text) {
+            const events = [];
+            
+            // Tìm ngày mốc để tính toán (VD: Tuần: 14 , Thứ Bảy, Ngày 4/4/2026)
+            let anchorMatch = text.match(/Tuần:\s*(\d+)\s*,\s*Thứ\s*[^\s,]+,\s*Ngày\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+            let mondayOfWeek1 = null;
+
+            if (anchorMatch) {
+                let refWeek = parseInt(anchorMatch[1]);
+                let refDate = new Date(parseInt(anchorMatch[4]), parseInt(anchorMatch[3]) - 1, parseInt(anchorMatch[2]));
+                
+                // Tính ngày Thứ Hai của tuần 1
+                let dayOfWeek = refDate.getDay();
+                let daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                let mondayOfRefWeek = new Date(refDate);
+                mondayOfRefWeek.setDate(refDate.getDate() - daysFromMonday);
+                
+                mondayOfWeek1 = new Date(mondayOfRefWeek);
+                mondayOfWeek1.setDate(mondayOfRefWeek.getDate() - (refWeek - 1) * 7);
+            } else {
+                // Dự phòng nếu không tìm thấy, yêu cầu user nhập
+                let userInput = prompt("Không tìm thấy thông tin Ngày trong văn bản. Vui lòng nhập ngày của Thứ Hai Tuần 1 học kỳ này (định dạng DD/MM/YYYY):", "05/01/2026");
+                if(userInput) {
+                    let parts = userInput.split('/');
+                    mondayOfWeek1 = new Date(parts[2], parts[1]-1, parts[0]);
+                } else return [];
+            }
+
+            const rawString = text.replace(/\n/g, ' ');
+            // Regex siêu chịu lỗi, bỏ qua các môn không có phòng/giờ học (như Đồ án, Thực tập)
+            const regex = /([A-Z]{2,3}\d{4})\s*(.+?)\s*(\d)\s*(\d)\s*([A-Za-z0-9_]+)\s*(\d)\s*(\d{1,2}\s*-\s*\d{1,2})\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})\s*(.*?)\s*(BK-[A-Za-z0-9\-]+|CS-DiAn|NGOAITRUONG)\s*((?:\d{2}|--)(?:\|(?:\d{2}|--))+)/g;
+            let match;
+
+            while ((match = regex.exec(rawString)) !== null) {
+                try {
+                    const subjectCode = match[1];
+                    const subjectName = match[2].trim();
+                    const tc = match[3];
+                    const tchp = match[4];
+                    const group = match[5];
+                    const dayOfWeek = parseInt(match[6]); // Từ 2-7
+                    const timeRaw = match[8];
+                    const room = match[9].trim();
+                    const weeksStr = match[11];
+
+                    const [startTimeStr, endTimeStr] = timeRaw.split('-').map(s => s.trim());
+                    const [startH, startM] = startTimeStr.split(':').map(Number);
+                    const [endH, endM] = endTimeStr.split(':').map(Number);
+
+                    const weeks = weeksStr.split('|');
+
+                    // Tạo sự kiện cho mỗi tuần học có trong chuỗi (bỏ qua tuần '--')
+                    weeks.forEach(w => {
+                        if(w !== '--') {
+                            let weekNum = parseInt(w);
+                            let eventDate = new Date(mondayOfWeek1);
+                            
+                            eventDate.setDate(eventDate.getDate() + (weekNum - 1) * 7);
+                            let addDays = dayOfWeek === 8 ? 6 : dayOfWeek - 2; // Chủ nhật=8
+                            eventDate.setDate(eventDate.getDate() + addDays);
+
+                            let startDT = new Date(eventDate);
+                            startDT.setHours(startH, startM, 0, 0);
+
+                            let endDT = new Date(eventDate);
+                            endDT.setHours(endH, endM, 0, 0);
+
+                            events.push({
+                                summary: `[Học] ${subjectName}`,
+                                location: room || "Xem TKB",
+                                description: `Mã môn học: ${subjectCode}\nTín chỉ: ${tc}\nTín chỉ học phí: ${tchp}\nNhóm - Tổ: ${group}`,
+                                start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                                end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
+                                _parentSubject: subjectName,
+                                _rawTimeStr: timeRaw,
+                                _rawDateStr: startDT.toLocaleDateString('vi-VN')
+                            });
+                        }
+                    });
+                } catch (e) { console.error("Lỗi parse lớp học", e); }
             }
 
             return events;
         }
 
-        function createEventObject(subject, dateStr, timeStr, durationStr, campus, room, type) {
-            const timeParts = timeStr.split('g');
-            const hours = parseInt(timeParts[0]);
-            const minutes = parseInt(timeParts[1]);
-            const duration = parseInt(durationStr);
-
-            const startDateTime = new Date(`${dateStr}T00:00:00+07:00`);
-            startDateTime.setHours(hours, minutes, 0, 0);
-            const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-
-            let typeText = type === "CK" ? "Thi Cuối Kỳ" : (type === "GK" ? "Thi Giữa Kỳ" : "Thi");
-
-            return {
-                summary: `[${typeText}] ${subject}`,
-                location: `${campus ? campus + ' ' : ''}${room}, Đại học Bách Khoa TP.HCM`.trim(),
-                description: `Thời gian làm bài: ${duration} phút\nLoại thi: ${typeText}`,
-                start: { dateTime: startDateTime.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
-                end: { dateTime: endDateTime.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
-                _rawTimeStr: `${timeStr} (${duration} phút)`,
-                _rawDateStr: dateStr
-            };
-        }
-
-        function renderTable(events) {
+        // --- RENDER GIAO DIỆN KẾT QUẢ ---
+        function renderTable(events, type) {
             const tbody = document.getElementById('eventsTableBody');
             tbody.innerHTML = '';
-            events.forEach(ev => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50 border-b";
-                tr.innerHTML = `
-                    <td class="px-4 py-3 font-medium text-gray-900">${ev.summary}</td>
-                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        <div class="font-medium text-gray-800">${ev._rawDateStr}</div>
-                        <div class="text-xs">${ev._rawTimeStr}</div>
-                    </td>
-                    <td class="px-4 py-3 text-gray-500">${ev.location}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-            document.getElementById('eventCount').innerText = `Tìm thấy ${events.length} môn thi`;
+            
+            // Nếu là TKB, gộp các sự kiện cùng môn lại để hiển thị cho gọn
+            if (type === 'class') {
+                const grouped = {};
+                events.forEach(ev => {
+                    if(!grouped[ev._parentSubject]) {
+                        grouped[ev._parentSubject] = { count: 0, summary: ev.summary, location: ev.location, time: ev._rawTimeStr };
+                    }
+                    grouped[ev._parentSubject].count++;
+                });
+
+                Object.values(grouped).forEach(g => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50 border-b";
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-medium text-gray-900">${g.summary} <span class="text-xs text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full ml-1">${g.count} buổi</span></td>
+                        <td class="px-4 py-3 text-gray-500 font-mono text-xs">${g.time}</td>
+                        <td class="px-4 py-3 text-gray-500">${g.location}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                document.getElementById('eventCount').innerText = `Tìm thấy ${Object.keys(grouped).length} môn học (Tổng cộng ${events.length} buổi học)`;
+            } else {
+                events.forEach(ev => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50 border-b";
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-medium text-gray-900">${ev.summary}</td>
+                        <td class="px-4 py-3 text-gray-500 whitespace-nowrap"><div class="font-medium text-gray-800">${ev._rawDateStr}</div><div class="text-xs">${ev._rawTimeStr}</div></td>
+                        <td class="px-4 py-3 text-gray-500">${ev.location}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                document.getElementById('eventCount').innerText = `Tìm thấy ${events.length} môn thi`;
+            }
         }
 
-        // --- GOOGLE CALENDAR SYNC LOGIC ---
+        // --- ĐỒNG BỘ LÊN LỊCH ĐÃ CHỌN ---
         async function syncToCalendar() {
             if(parsedEvents.length === 0) return;
             
@@ -354,10 +456,12 @@
             btn.disabled = true;
             btn.innerHTML = `<span class="loader mr-2 border-white border-t-blue-200"></span> Đang đồng bộ...`;
             
+            const selectedCalendarId = document.getElementById('calendarSelector').value;
+            
             const logContainer = document.getElementById('logArea');
             logContainer.classList.remove('hidden');
             document.getElementById('logContent').innerHTML = '';
-            log(`Bắt đầu đồng bộ ${parsedEvents.length} sự kiện...`);
+            log(`Bắt đầu đồng bộ ${parsedEvents.length} sự kiện vào Lịch đã chọn...`);
 
             let successCount = 0;
             let errorCount = 0;
@@ -365,18 +469,18 @@
             for (let event of parsedEvents) {
                 try {
                     const request = {
-                        'calendarId': 'primary',
+                        'calendarId': selectedCalendarId,
                         'resource': {
                             'summary': event.summary,
                             'location': event.location,
                             'description': event.description,
                             'start': event.start,
                             'end': event.end,
-                            'colorId': '11', 
+                            'colorId': parsedType === 'exam' ? '11' : '9', // Đỏ cho lịch thi, Xanh lơ cho lịch học
                             'reminders': {
                                 'useDefault': false,
                                 'overrides': [
-                                    {'method': 'popup', 'minutes': 24 * 60}, 
+                                    {'method': 'popup', 'minutes': parsedType === 'exam' ? 24 * 60 : 30}, 
                                     {'method': 'popup', 'minutes': 60}       
                                 ]
                             }
@@ -384,7 +488,7 @@
                     };
 
                     await gapi.client.calendar.events.insert(request);
-                    log(`✅ Đã thêm: ${event.summary}`);
+                    log(`✅ Đã thêm: ${event.summary} (${event._rawDateStr || 'Định kỳ'})`);
                     successCount++;
                 } catch (error) {
                     console.error(error);
@@ -394,12 +498,8 @@
             }
 
             log(`\n🎉 Hoàn tất! Thành công: ${successCount}, Lỗi: ${errorCount}`);
-            
             btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Hoàn thành`;
-            setTimeout(() => {
-                btn.innerHTML = originalBtnHTML;
-                btn.disabled = false;
-            }, 3000);
+            setTimeout(() => { btn.innerHTML = originalBtnHTML; btn.disabled = false; }, 3000);
         }
 
         function log(message, isError = false) {
