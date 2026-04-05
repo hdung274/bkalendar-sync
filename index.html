@@ -165,32 +165,24 @@
 
         // --- CÁC HÀM XỬ LÝ CHUẨN ISO CỦA NĂM ---
         
-        // 1. Tính toán năm thực tế của học kỳ dựa trên số tuần chuẩn ISO
         function getActualYearForClass(semCode, isoWeek) {
             if (!semCode || semCode === "Lịch Bách khoa") return new Date().getFullYear();
             const startYear = 2000 + parseInt(semCode.substring(0, 2), 10);
             const term = parseInt(semCode.substring(2, 3), 10);
             
             if (term === 1) {
-                // HK1: Các tuần đầu năm dương lịch (VD: tuần 1 đến tuần 25) sẽ thuộc năm sau.
-                // Các tuần cuối năm (VD: từ 35 trở lên) sẽ thuộc năm bắt đầu khóa.
                 return (isoWeek < 26) ? startYear + 1 : startYear;
             } else {
-                // HK2 và HK Hè (tuần 1 đến tuần ~35) luôn diễn ra ở năm tiếp theo.
                 return startYear + 1;
             }
         }
 
-        // 2. Thuật toán tìm ngày Thứ Hai của một tuần chuẩn ISO 8601 bất kỳ
         function getMondayOfIsoWeek(week, year) {
-            // Theo chuẩn ISO 8601, Tuần 1 luôn là tuần chứa ngày 4 tháng 1.
             const jan4 = new Date(year, 0, 4);
-            const daysOffset = jan4.getDay() === 0 ? 6 : jan4.getDay() - 1; // Đổi Chủ nhật (0) thành 6, T2 (1) thành 0...
+            const daysOffset = jan4.getDay() === 0 ? 6 : jan4.getDay() - 1; 
             
-            // Tìm ngày Thứ Hai của tuần 1
             const firstMonday = new Date(year, 0, 4 - daysOffset);
             
-            // Cộng thêm số tuần
             firstMonday.setDate(firstMonday.getDate() + (week - 1) * 7);
             return firstMonday;
         }
@@ -303,9 +295,8 @@
             let isClass = rawText.includes("THỜI KHÓA BIỂU") || rawText.includes("TÍN CHỈ") || rawText.includes("TUẦN HỌC");
             let isExam = rawText.includes("LỊCH KIỂM TRA") || rawText.includes("Ngày thi") || rawText.includes("Loại thi");
 
-            // --- BẢN FIX: Nhận diện mã 5 số (202xx) hoặc mã 3 số (2xx) ---
-            const hkMatch5 = rawText.match(/\b20(\d{2}[1-3])\b/); // Bắt dạng 20231 -> lấy 231
-            const hkMatch3 = rawText.match(/\b(2[0-9][1-3])\b/);  // Bắt dạng 231 -> lấy 231
+            const hkMatch5 = rawText.match(/\b20(\d{2}[1-3])\b/); 
+            const hkMatch3 = rawText.match(/\b(2[0-9][1-3])\b/);  
             
             let currentSemesterCode = "";
             
@@ -347,7 +338,6 @@
             }
         });
 
-        // Parse lịch thi 
         function parseExamSchedule(text) {
             const events = [];
             const rawString = text.replace(/[\n\t]/g, ' ');
@@ -383,7 +373,7 @@
                     const writingStartStr = `${writingStartDT.getHours().toString().padStart(2, '0')}g${writingStartDT.getMinutes().toString().padStart(2, '0')}`;
 
                     events.push({
-                        summary: `[${type}] ${subjectName} - DCalen`,
+                        summary: `[${type}] ${subjectName}`,
                         location: room,
                         description: `Giờ có mặt: ${timeRaw}\nBắt đầu làm bài: ${writingStartStr}\nThời gian làm bài: ${durationRaw} phút`,
                         start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
@@ -397,7 +387,6 @@
             return events;
         }
 
-        // Parse lịch học 
         function parseClassSchedule(text, semCode) {
             const events = [];
             const rawString = text.replace(/[\n\t]/g, ' ');
@@ -442,7 +431,7 @@
                         endDT.setHours(endH, endM, 0, 0);
 
                         events.push({
-                            summary: `[Học] ${subjectName} - DCalen`,
+                            summary: `[Học] ${subjectName}`,
                             location: room || "Xem TKB",
                             description: `Mã môn học: ${subjectCode}\nTín chỉ: ${tc}\nTín chỉ học phí: ${tchp}\nNhóm - Tổ: ${group}`,
                             start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
