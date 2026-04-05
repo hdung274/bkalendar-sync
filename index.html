@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BKalendar Sync - DCalen</title>
+    <title>📅 BKalendar Sync - DCalen</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📅%3C/text%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -92,7 +92,6 @@
                                 <span class="loader mr-2"></span>
                                 <span class="text-sm text-gray-500 font-sans">Đang kiểm tra kết nối Google...</span>
                             </div>
-                            
                             <div id="authLogin">
                                 <p class="text-sm text-gray-600 italic mb-2">Đăng nhập để lưu vào Lịch</p>
                                 <button id="authBtn" onclick="handleAuthClick()" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-3 font-sans">
@@ -151,7 +150,6 @@
     </div>
 
     <script>
-        // --- CẤU HÌNH API GOOGLE ---
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
         const SCOPES = 'https://www.googleapis.com/auth/calendar';
         let CLIENT_ID = localStorage.getItem('mybk_client_id') || '';
@@ -165,7 +163,6 @@
         let parsedSemester = ""; 
         let targetCalendarId = null;
 
-        // Xử lý UI nếu có cờ đã login
         if (localStorage.getItem('mybk_logged_in') === 'true') {
             document.getElementById('authLogin').classList.add('hidden');
             document.getElementById('authLoading').classList.remove('hidden');
@@ -190,7 +187,6 @@
             }
         }
 
-        // --- KHỞI TẠO GOOGLE API ---
         function gapiLoaded() { gapi.load('client', initializeGapiClient); }
 
         async function initializeGapiClient() {
@@ -208,7 +204,6 @@
 
         function gisLoaded() {
             if(!CLIENT_ID) return;
-            // Bỏ giới hạn hcmut.edu.vn, cho phép mọi tài khoản đăng nhập
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
@@ -220,7 +215,6 @@
 
         window.onload = () => { if(window.gapi) gapiLoaded(); if(window.google) gisLoaded(); };
 
-        // Xin lại token âm thầm khi F5
         function tryAutoSignIn() {
             if (isGapiLoaded && isGsiLoaded && localStorage.getItem('mybk_logged_in') === 'true') {
                 tokenClient.requestAccessToken({ prompt: '' });
@@ -229,18 +223,14 @@
 
         function handleAuthResponse(resp) {
             if (resp.error !== undefined) {
-                console.error("Lỗi Auth:", resp.error);
                 localStorage.removeItem('mybk_logged_in');
                 document.getElementById('authLoading').classList.add('hidden');
                 document.getElementById('authLogin').classList.remove('hidden');
                 return;
             }
-            
-            // Set token cho GAPI để gọi API
             gapi.client.setToken(resp);
             localStorage.setItem('mybk_logged_in', 'true');
             
-            // Đổi UI sang trạng thái Đã kết nối
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('syncSection').classList.remove('hidden');
             document.getElementById('syncSection').classList.add('flex');
@@ -272,12 +262,10 @@
             alert("Đã đăng xuất tài khoản.");
         }
 
-        // --- LOGIC PHÂN TÍCH CHUỖI ---
         document.getElementById('parseBtn').addEventListener('click', () => {
             const rawText = document.getElementById('rawInput').value;
             if(!rawText.trim()) { alert("Vui lòng dán dữ liệu!"); return; }
             
-            // Nhận diện Lịch học hay Lịch thi
             let isClass = rawText.includes("THỜI KHÓA BIỂU") || rawText.includes("TÍN CHỈ") || rawText.includes("TUẦN HỌC");
             let isExam = rawText.includes("LỊCH KIỂM TRA") || rawText.includes("Ngày thi") || rawText.includes("Loại thi");
 
@@ -297,7 +285,6 @@
                 }
             }
 
-            // Quét mã học kỳ để tự động phân loại Lịch trên Google Calendar
             const semMatch = rawText.match(/\b20\d{3}\b/);
             if (semMatch) {
                 parsedSemester = semMatch[0].substring(2); 
@@ -314,7 +301,6 @@
             }
         });
 
-        // 1. Phân tích LỊCH THI
         function parseExamSchedule(text) {
             const events = [];
             const rawString = text.replace(/[\n\t]/g, ' ');
@@ -329,12 +315,10 @@
                     const timeRaw = match[5];
                     const durationRaw = match[6];
 
-                    // Tách loại thi
                     let type = "Thi";
                     if (roomRaw.includes("CK")) type = "CK";
                     else if (roomRaw.includes("GK")) type = "GK";
 
-                    // Dọn dẹp tên phòng
                     if (roomRaw.startsWith("CK")) roomRaw = roomRaw.substring(2).trim();
                     else if (roomRaw.startsWith("GK")) roomRaw = roomRaw.substring(2).trim();
                     if (roomRaw.startsWith("BK-CS1")) roomRaw = roomRaw.substring(6).trim();
@@ -343,7 +327,6 @@
 
                     const room = roomRaw || "Xem trên MyBk";
                     
-                    // Tính toán giờ: Thời gian trên lịch là giờ tập trung. Thi chính thức bắt đầu sau 15p.
                     const timeParts = timeRaw.split('g');
                     const startDT = new Date(`${date}T00:00:00+07:00`);
                     startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
@@ -367,11 +350,12 @@
             return events;
         }
 
-        // 2. Phân tích THỜI KHÓA BIỂU (Lịch học)
+        // ĐÂY LÀ PHẦN ĐÃ FIX LỖI CỘNG DỒN NGÀY VÀO THÁNG 5 NĂM SAU
         function parseClassSchedule(text) {
             const events = [];
+            const rawString = text.replace(/[\n\t]/g, ' ');
+            const regexStr = /([A-Z]{2,3}\d{4})\s+((?:(?![A-Z]{2,3}\d{4}).)+?)\s+(\d+)\s+(\d+)\s+([A-Za-z0-9_]+(?:\s+\d+)?)\s+([2-8]|--)\s+(\d{1,2}\s*-\s*\d{1,2}|--)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}|--)\s+(.*?)\s+(BK-[A-Za-z0-9\-]+|CS-[A-Za-z0-9]+|NGOAITRUONG|--)\s+((?:\d{2}|--)(?:\|(?:\d{2}|--))*\|?)/g;
             
-            // Tìm ngày làm mốc
             let anchorMatch = text.match(/Tuần:\s*(\d+)\s*,\s*Thứ\s*[^\s,]+,\s*Ngày\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
             let mondayOfWeek1 = null;
 
@@ -385,18 +369,34 @@
                 mondayOfWeek1 = new Date(mondayOfRefWeek);
                 mondayOfWeek1.setDate(mondayOfRefWeek.getDate() - (refWeek - 1) * 7);
             } else {
-                let userInput = prompt("Không tìm thấy ngày để chiếu chiếu. Vui lòng nhập ngày Thứ Hai Tuần 1 học kỳ này (DD/MM/YYYY):", "05/01/2026");
+                let userInput = prompt("Không tìm thấy dòng ngày tháng làm mốc.\nVui lòng nhập ngày Thứ Hai của tuần học ĐẦU TIÊN (DD/MM/YYYY):", "11/09/2023");
                 if(userInput) {
                     let parts = userInput.split('/');
-                    mondayOfWeek1 = new Date(parts[2], parts[1]-1, parts[0]);
+                    let userDate = new Date(parts[2], parts[1]-1, parts[0]);
+                    
+                    // Thuật toán: Tìm số tuần nhỏ nhất trong TKB để lùi ngày mốc về đúng "Tuần 1 của năm"
+                    let minWeek = 99;
+                    let matchTemp;
+                    let regexScan = new RegExp(regexStr);
+                    while ((matchTemp = regexScan.exec(rawString)) !== null) {
+                        let weeksStr = matchTemp[11];
+                        if (!weeksStr) continue;
+                        let weeks = weeksStr.split('|').filter(w => w !== '' && w !== '--');
+                        weeks.forEach(w => {
+                            let wNum = parseInt(w);
+                            if (wNum < minWeek) minWeek = wNum;
+                        });
+                    }
+                    if (minWeek === 99) minWeek = 1;
+                    
+                    mondayOfWeek1 = new Date(userDate);
+                    mondayOfWeek1.setDate(userDate.getDate() - (minWeek - 1) * 7);
                 } else return [];
             }
 
-            const rawString = text.replace(/[\n\t]/g, ' ');
-            const regex = /([A-Z]{2,3}\d{4})\s+((?:(?![A-Z]{2,3}\d{4}).)+?)\s+(\d+)\s+(\d+)\s+([A-Za-z0-9_]+(?:\s+\d+)?)\s+([2-8]|--)\s+(\d{1,2}\s*-\s*\d{1,2}|--)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}|--)\s+(.*?)\s+(BK-[A-Za-z0-9\-]+|CS-[A-Za-z0-9]+|NGOAITRUONG|--)\s+((?:\d{2}|--)(?:\|(?:\d{2}|--))*\|?)/g;
+            let regexParse = new RegExp(regexStr);
             let match;
-
-            while ((match = regex.exec(rawString)) !== null) {
+            while ((match = regexParse.exec(rawString)) !== null) {
                 try {
                     const subjectCode = match[1];
                     const subjectName = match[2].trim();
@@ -408,7 +408,6 @@
                     const room = match[9].trim();
                     const weeksStr = match[11];
 
-                    // Bỏ qua các môn không có lịch cụ thể (như Đồ án, Thực tập)
                     if (dayOfWeekStr === '--' || timeRaw === '--') continue;
 
                     const dayOfWeek = parseInt(dayOfWeekStr);
@@ -445,12 +444,9 @@
             return events;
         }
 
-        // --- HIỂN THỊ DỮ LIỆU BẢNG TẠM ---
         function renderTable(events, type) {
             const tbody = document.getElementById('eventsTableBody');
             tbody.innerHTML = '';
-            
-            // Gom nhóm TKB để đỡ bị rác bảng
             if (type === 'class') {
                 const grouped = {};
                 events.forEach(ev => {
@@ -475,7 +471,6 @@
             }
         }
 
-        // --- HÀM GỬI LÊN GOOGLE CALENDAR ---
         async function syncToCalendar() {
             if(parsedEvents.length === 0) return;
             const btn = document.getElementById('syncBtn');
@@ -488,7 +483,6 @@
             document.getElementById('logContent').innerHTML = '';
 
             try {
-                // Tìm lịch tương ứng với học kỳ (ví dụ "252")
                 const response = await gapi.client.calendar.calendarList.list();
                 const calendars = response.result.items;
                 targetCalendarId = null;
@@ -498,7 +492,6 @@
                     }
                 });
 
-                // Nếu chưa có, tự động tạo lịch mới
                 if (!targetCalendarId) {
                     log(`Đang tạo lịch học kỳ "${parsedSemester}"...`);
                     const newCal = await gapi.client.calendar.calendars.insert({ resource: { summary: parsedSemester, timeZone: 'Asia/Ho_Chi_Minh' } });
@@ -515,8 +508,6 @@
             log(`Đang đẩy ${parsedEvents.length} sự kiện lên lịch...`);
             let successCount = 0;
             let subjectLogCount = {};
-            
-            // Xử lý chia màu (11 là Đỏ cho Lịch thi)
             const classColors = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
             const subjectColorMap = {};
             let colorIndex = 0;
@@ -553,7 +544,6 @@
                 }
             }
 
-            // Gộp log thông báo để giao diện không bị giật lag khi thêm hàng chục môn
             for (const [subject, count] of Object.entries(subjectLogCount)) {
                 log(`✅ Đã thêm: ${count} buổi - ${subject}`);
             }
@@ -563,7 +553,6 @@
             setTimeout(() => { btn.innerHTML = originalBtnHTML; btn.disabled = false; }, 3000);
         }
 
-        // --- HÀM GHI LOG GIAO DIỆN ---
         function log(message, isError = false) {
             const div = document.createElement('div');
             div.textContent = `> ${message}`;
