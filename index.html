@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📅 BKalendar Sync - DCalen</title>
+    <title>BKalendar Sync - DCalen</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📅%3C/text%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -163,6 +163,39 @@
         let parsedSemester = ""; 
         let targetCalendarId = null;
 
+        // --- CÁC HÀM XỬ LÝ CHUẨN ISO CỦA NĂM ---
+        
+        // 1. Tính toán năm thực tế của học kỳ dựa trên số tuần chuẩn ISO
+        function getActualYearForClass(semCode, isoWeek) {
+            if (!semCode || semCode === "Lịch Bách khoa") return new Date().getFullYear();
+            const startYear = 2000 + parseInt(semCode.substring(0, 2), 10);
+            const term = parseInt(semCode.substring(2, 3), 10);
+            
+            if (term === 1) {
+                // HK1: Các tuần đầu năm dương lịch (VD: tuần 1 đến tuần 25) sẽ thuộc năm sau.
+                // Các tuần cuối năm (VD: từ 35 trở lên) sẽ thuộc năm bắt đầu khóa.
+                return (isoWeek < 26) ? startYear + 1 : startYear;
+            } else {
+                // HK2 và HK Hè (tuần 1 đến tuần ~35) luôn diễn ra ở năm tiếp theo.
+                return startYear + 1;
+            }
+        }
+
+        // 2. Thuật toán tìm ngày Thứ Hai của một tuần chuẩn ISO 8601 bất kỳ
+        function getMondayOfIsoWeek(week, year) {
+            // Theo chuẩn ISO 8601, Tuần 1 luôn là tuần chứa ngày 4 tháng 1.
+            const jan4 = new Date(year, 0, 4);
+            const daysOffset = jan4.getDay() === 0 ? 6 : jan4.getDay() - 1; // Đổi Chủ nhật (0) thành 6, T2 (1) thành 0...
+            
+            // Tìm ngày Thứ Hai của tuần 1
+            const firstMonday = new Date(year, 0, 4 - daysOffset);
+            
+            // Cộng thêm số tuần
+            firstMonday.setDate(firstMonday.getDate() + (week - 1) * 7);
+            return firstMonday;
+        }
+
+        // --- AUTH VÀ CHUẨN BỊ API ---
         if (localStorage.getItem('mybk_logged_in') === 'true') {
             document.getElementById('authLogin').classList.add('hidden');
             document.getElementById('authLoading').classList.remove('hidden');
@@ -262,6 +295,7 @@
             alert("Đã đăng xuất tài khoản.");
         }
 
+        // --- XỬ LÝ LÔI DATA VÀ PHÂN TÍCH ---
         document.getElementById('parseBtn').addEventListener('click', () => {
             const rawText = document.getElementById('rawInput').value;
             if(!rawText.trim()) { alert("Vui lòng dán dữ liệu!"); return; }
@@ -269,27 +303,31 @@
             let isClass = rawText.includes("THỜI KHÓA BIỂU") || rawText.includes("TÍN CHỈ") || rawText.includes("TUẦN HỌC");
             let isExam = rawText.includes("LỊCH KIỂM TRA") || rawText.includes("Ngày thi") || rawText.includes("Loại thi");
 
+            // Tự động nhận diện Mã học kỳ có 3 chữ số bắt đầu bằng 2 (VD: 231, 232, 241)
+            const hkMatch = rawText.match(/\b(2[0-9][1-3])\b/);
+            let currentSemesterCode = "";
+            if (hkMatch) {
+                currentSemesterCode = hkMatch[1]; 
+                parsedSemester = currentSemesterCode; 
+            } else {
+                currentSemesterCode = prompt("Hệ thống không tìm thấy Mã học kỳ.\nVui lòng nhập mã học kỳ để chuẩn hóa năm (VD: 231, 232):", "231");
+                parsedSemester = currentSemesterCode || "Lịch Bách khoa";
+            }
+
             if (isClass && !isExam) {
-                parsedEvents = parseClassSchedule(rawText);
+                parsedEvents = parseClassSchedule(rawText, currentSemesterCode);
                 parsedType = 'class';
             } else if (isExam && !isClass) {
-                parsedEvents = parseExamSchedule(rawText);
+                parsedEvents = parseExamSchedule(rawText); // Không cần truyền semCode vì lịch thi đã có ngày tháng chuẩn YYYY-MM-DD
                 parsedType = 'exam';
             } else {
                 parsedEvents = parseExamSchedule(rawText);
                 if (parsedEvents.length > 0) {
                     parsedType = 'exam';
                 } else {
-                    parsedEvents = parseClassSchedule(rawText);
+                    parsedEvents = parseClassSchedule(rawText, currentSemesterCode);
                     parsedType = 'class';
                 }
-            }
-
-            const semMatch = rawText.match(/\b20\d{3}\b/);
-            if (semMatch) {
-                parsedSemester = semMatch[0].substring(2); 
-            } else {
-                parsedSemester = "Lịch Bách khoa";
             }
             
             if(parsedEvents.length > 0) {
@@ -301,6 +339,7 @@
             }
         });
 
+        // Parse lịch thi (Lịch thi MyBK luôn xuất đủ YYYY-MM-DD nên không dùng hàm tuần ISO ở đây)
         function parseExamSchedule(text) {
             const events = [];
             const rawString = text.replace(/[\n\t]/g, ' ');
@@ -310,7 +349,7 @@
             while ((match = regex.exec(rawString)) !== null) {
                 try {
                     const subjectName = match[2].trim();
-                    const date = match[3];
+                    const dateRaw = match[3]; // Đã có đủ YYYY-MM-DD
                     let roomRaw = match[4].trim(); 
                     const timeRaw = match[5];
                     const durationRaw = match[6];
@@ -328,7 +367,7 @@
                     const room = roomRaw || "Xem trên MyBk";
                     
                     const timeParts = timeRaw.split('g');
-                    const startDT = new Date(`${date}T00:00:00+07:00`);
+                    const startDT = new Date(`${dateRaw}T00:00:00+07:00`);
                     startDT.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), 0, 0);
                     
                     const writingStartDT = new Date(startDT.getTime() + 15 * 60000);
@@ -336,13 +375,13 @@
                     const writingStartStr = `${writingStartDT.getHours().toString().padStart(2, '0')}g${writingStartDT.getMinutes().toString().padStart(2, '0')}`;
 
                     events.push({
-                        summary: `[${type}] ${subjectName}`,
+                        summary: `[${type}] ${subjectName} - DCalen`,
                         location: room,
                         description: `Giờ có mặt: ${timeRaw}\nBắt đầu làm bài: ${writingStartStr}\nThời gian làm bài: ${durationRaw} phút`,
                         start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
                         end: { dateTime: endDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
                         _rawTimeStr: `${timeRaw} (+15p)`,
-                        _rawDateStr: date,
+                        _rawDateStr: dateRaw,
                         _parentSubject: subjectName
                     });
                 } catch (e) {}
@@ -350,52 +389,14 @@
             return events;
         }
 
-        // ĐÂY LÀ PHẦN ĐÃ FIX LỖI CỘNG DỒN NGÀY VÀO THÁNG 5 NĂM SAU
-        function parseClassSchedule(text) {
+        // Parse lịch học (Dùng hàm tính ngày theo tuần chuẩn ISO 8601)
+        function parseClassSchedule(text, semCode) {
             const events = [];
             const rawString = text.replace(/[\n\t]/g, ' ');
             const regexStr = /([A-Z]{2,3}\d{4})\s+((?:(?![A-Z]{2,3}\d{4}).)+?)\s+(\d+)\s+(\d+)\s+([A-Za-z0-9_]+(?:\s+\d+)?)\s+([2-8]|--)\s+(\d{1,2}\s*-\s*\d{1,2}|--)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}|--)\s+(.*?)\s+(BK-[A-Za-z0-9\-]+|CS-[A-Za-z0-9]+|NGOAITRUONG|--)\s+((?:\d{2}|--)(?:\|(?:\d{2}|--))*\|?)/g;
-            
-            let anchorMatch = text.match(/Tuần:\s*(\d+)\s*,\s*Thứ\s*[^\s,]+,\s*Ngày\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
-            let mondayOfWeek1 = null;
-
-            if (anchorMatch) {
-                let refWeek = parseInt(anchorMatch[1]);
-                let refDate = new Date(parseInt(anchorMatch[4]), parseInt(anchorMatch[3]) - 1, parseInt(anchorMatch[2]));
-                let dayOfWeek = refDate.getDay();
-                let daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                let mondayOfRefWeek = new Date(refDate);
-                mondayOfRefWeek.setDate(refDate.getDate() - daysFromMonday);
-                mondayOfWeek1 = new Date(mondayOfRefWeek);
-                mondayOfWeek1.setDate(mondayOfRefWeek.getDate() - (refWeek - 1) * 7);
-            } else {
-                let userInput = prompt("Không tìm thấy dòng ngày tháng làm mốc.\nVui lòng nhập ngày Thứ Hai của tuần học ĐẦU TIÊN (DD/MM/YYYY):", "11/09/2023");
-                if(userInput) {
-                    let parts = userInput.split('/');
-                    let userDate = new Date(parts[2], parts[1]-1, parts[0]);
-                    
-                    // Thuật toán: Tìm số tuần nhỏ nhất trong TKB để lùi ngày mốc về đúng "Tuần 1 của năm"
-                    let minWeek = 99;
-                    let matchTemp;
-                    let regexScan = new RegExp(regexStr);
-                    while ((matchTemp = regexScan.exec(rawString)) !== null) {
-                        let weeksStr = matchTemp[11];
-                        if (!weeksStr) continue;
-                        let weeks = weeksStr.split('|').filter(w => w !== '' && w !== '--');
-                        weeks.forEach(w => {
-                            let wNum = parseInt(w);
-                            if (wNum < minWeek) minWeek = wNum;
-                        });
-                    }
-                    if (minWeek === 99) minWeek = 1;
-                    
-                    mondayOfWeek1 = new Date(userDate);
-                    mondayOfWeek1.setDate(userDate.getDate() - (minWeek - 1) * 7);
-                } else return [];
-            }
-
             let regexParse = new RegExp(regexStr);
             let match;
+            
             while ((match = regexParse.exec(rawString)) !== null) {
                 try {
                     const subjectCode = match[1];
@@ -414,22 +415,32 @@
                     const [startTimeStr, endTimeStr] = timeRaw.split('-').map(s => s.trim());
                     const [startH, startM] = startTimeStr.split(':').map(Number);
                     const [endH, endM] = endTimeStr.split(':').map(Number);
+                    
+                    // Lọc ra danh sách các số tuần từ dữ liệu MyBK
                     const weeks = weeksStr.split('|').filter(w => w !== '' && w !== '--');
 
                     weeks.forEach(w => {
-                        let weekNum = parseInt(w);
-                        let eventDate = new Date(mondayOfWeek1);
-                        eventDate.setDate(eventDate.getDate() + (weekNum - 1) * 7);
-                        let addDays = dayOfWeek === 8 ? 6 : dayOfWeek - 2; 
-                        eventDate.setDate(eventDate.getDate() + addDays);
+                        let weekNum = parseInt(w, 10);
+                        
+                        // 1. Tính toán năm thực tế của học kỳ cho tuần này
+                        let targetYear = getActualYearForClass(semCode, weekNum);
+                        
+                        // 2. Tìm ngày Thứ 2 của tuần ISO đó
+                        let mondayDate = getMondayOfIsoWeek(weekNum, targetYear);
 
+                        // 3. Cộng ngày tùy thuộc vào Thứ của buổi học (MyBK: Thứ 2 = 2, ..., Thứ 7 = 7, CN = 8)
+                        let addDays = dayOfWeek === 8 ? 6 : dayOfWeek - 2; 
+                        let eventDate = new Date(mondayDate);
+                        eventDate.setDate(mondayDate.getDate() + addDays);
+
+                        // 4. Set Giờ chuẩn
                         let startDT = new Date(eventDate);
                         startDT.setHours(startH, startM, 0, 0);
                         let endDT = new Date(eventDate);
                         endDT.setHours(endH, endM, 0, 0);
 
                         events.push({
-                            summary: `[Học] ${subjectName}`,
+                            summary: `[Học] ${subjectName} - DCalen`,
                             location: room || "Xem TKB",
                             description: `Mã môn học: ${subjectCode}\nTín chỉ: ${tc}\nTín chỉ học phí: ${tchp}\nNhóm - Tổ: ${group}`,
                             start: { dateTime: startDT.toISOString(), timeZone: 'Asia/Ho_Chi_Minh' },
@@ -444,6 +455,7 @@
             return events;
         }
 
+        // --- RENDER & ĐỒNG BỘ LÊN GOOGLE CALENDAR ---
         function renderTable(events, type) {
             const tbody = document.getElementById('eventsTableBody');
             tbody.innerHTML = '';
@@ -545,7 +557,7 @@
             }
 
             for (const [subject, count] of Object.entries(subjectLogCount)) {
-                log(`✅ Đã thêm: ${count} buổi - ${subject}`);
+                log(`✅ Đã thêm: ${count} sự kiện - ${subject}`);
             }
 
             log(`\n🎉 Hoàn tất! Thành công: ${successCount}/${parsedEvents.length}`);
